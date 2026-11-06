@@ -9,5 +9,13 @@
                 <action android:name="com.daviddokakis.karoointerval.DEBUG_REMOTE" />
             </intent-filter>
         </receiver>
+        <!-- Indoor ERG spike: drive the trainer from adb (see DebugTrainerReceiver). -->
+        <receiver
+            android:name=".DebugTrainerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.daviddokakis.karoointerval.DEBUG_TRAINER" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
