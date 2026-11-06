@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indoor ERG mockups</title>
+<style>
+  @font-face { font-family: PlexCond; src: url(__FONT_COND__); font-weight: 500; }
+  @font-face { font-family: Plex; src: url(__FONT_REG__); font-weight: 400; }
+  @font-face { font-family: Plex; src: url(__FONT_MED__); font-weight: 500; }
+  @font-face { font-family: Plex; src: url(__FONT_BOLD__); font-weight: 600; }
+  :root { color-scheme: dark; }
+  body { background:#2A2A2A; color:#E8E6E1; font:14px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif; margin:0; padding:28px 16px; }
+  h2 { font-size:16px; font-weight:500; margin:34px 0 14px; text-align:center; }
+  h2:first-child { margin-top:0; }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; gap:28px; }
+  .dev { display:grid; justify-items:center; gap:8px; }
+  .cap { color:#A9A6A0; font-size:13px; }
+  .tiles { display:grid; grid-template-columns:repeat(4, auto); gap:14px 18px; justify-content:center; }
+  .tiles canvas { border-radius:6px; }
+  @media (max-width: 700px) { .tiles { grid-template-columns:repeat(2, auto); } }
+</style>
+</head>
+<body>
+<h2>Where the ERG pill goes</h2>
+<div class="row" id="place"></div>
+<h2>Pill states</h2>
+<div class="tiles" id="states"></div>
+<h2>Karoo isn't in Read-Only</h2>
+<div class="row" id="conflict"></div>
+<h2>Workout paused: trainer eases off</h2>
+<div class="row" id="paused"></div>
+<h2>Settings: new Trainer section</h2>
+<div class="row" id="settings"></div>
+
+<script>/*__KAROO_DEVICE_JS__*/</script>
+<script>
+const FRAME = "__FRAME__";
+const SHOTS = {
+  classicLight: "__SHOT_classic-light__", gaugeLight: "__SHOT_gauge-light__",
+  classicDark: "__SHOT_classic-dark__", gaugeDark: "__SHOT_gauge-dark__",
+  settingsLight: "__SHOT_settings-light__", settingsDark: "__SHOT_settings-dark__",
+};
+const THEME = {
+  light: { bg:'#FFFFFF', tx:'#0B0B0B', sub:'#6E6E6E', tile:'#EDEDED', trk:'#E3E1DA', green:'#129A5E',
+           on:['#D7EFE3', '#0E7A4A'], wait:['#ECECEC', '#6E6E6E'], warn:['#FBE0B0', '#8A5300'],
+           note:'#FBE0B0', noteLabel:'#8A5300', noteText:'#1A1A1A', paused:'#F9C97C', pausedTx:'#3B2A10',
+           seg:'#F0F0EE', segOn:'#9FB1BA', head:'#1F2A2A', desc:'#6E6E6E', rule:'#DDDDDD' },
+  dark:  { bg:'#000000', tx:'#FFFFFF', sub:'#A0A0A0', tile:'#262626', trk:'#3A3A3A', green:'#2EC27E',
+           on:['#123A2A', '#49C98A'], wait:['#2A2A2A', '#A0A0A0'], warn:['#4A3510', '#F2B54A'],
+           note:'#4A3510', noteLabel:'#F2B54A', noteText:'#FFFFFF', paused:'#F9C97C', pausedTx:'#3B2A10',
+           seg:'#262626', segOn:'#5F7682', head:'#FFFFFF', desc:'#C9C9C9', rule:'#333333' },
+};
+const PAGE_BG = { light:'#FFFFFF', dark:'#0B0B0B' };
+
+function rrect(ctx, x, y, w, h, r, fill) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill(); }
+function text(ctx, s, x, y, font, color, align = 'left', squeeze = 1) {
+  ctx.save(); ctx.scale(squeeze, 1); ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(s, x / squeeze, y); ctx.restore();
+}
+function textW(ctx, s, font, squeeze = 1) { ctx.save(); ctx.font = font; const w = ctx.measureText(s).width * squeeze; ctx.restore(); return w; }
+
+// ---- ERG pill ----------------------------------------------------------------------------------
+// state: on | wait | lost | karoo. Returns its width.
+const PILL_H = 36, PILL_FONT = '500 24px PlexCond';
+function pill(ctx, t, x, y, state) {
+  const [bg, fg] = state === 'on' ? t.on : state === 'wait' ? t.wait : t.warn;
+  const glyph = { on: '', wait: '…', lost: '✕', karoo: '!' }[state];
+  const w1 = textW(ctx, 'ERG', PILL_FONT), gw = glyph ? 8 + textW(ctx, glyph, '600 22px Plex') : 0;
+  const dot = state === 'on' ? 16 : 0, w = 14 + dot + w1 + gw + 14;
+  rrect(ctx, x, y, w, PILL_H, PILL_H / 2, bg);
+  if (dot) { ctx.beginPath(); ctx.arc(x + 14 + 5, y + PILL_H / 2, 5, 0, 7); ctx.fillStyle = fg; ctx.fill(); }
+  text(ctx, 'ERG', x + 14 + dot, y + 26, PILL_FONT, fg);
+  if (glyph) text(ctx, glyph, x + 14 + dot + w1 + 8, y + 26, '600 22px Plex', fg);
+  return w;
+}
+// Option A: top row, right of the gear. Option B: interval row, after "INTERVAL 1 / 16".
+function pillA(t, state) { return ctx => pill(ctx, t, 62, 80, state); }
+function pillB(t, rowBase, state) { return ctx => pill(ctx, t, 222, rowBase - 27, state); }
+
+// ---- cleaning the screenshot --------------------------------------------------------------------
+// Remove the Karoo's floating back / play pills and draw the chart on under them (light, no route).
+const CHART = { green:'#23A07A', orange:'#C07A1C', red:'#DD5A33', lime:'#6CA330' };
+function cleanLightBottom(ctx, t) {
+  ctx.fillStyle = t.bg; ctx.fillRect(0, 672, 106, 128); ctx.fillRect(374, 672, 106, 128);
+  const bar = (x0, x1, top, col) => { ctx.fillStyle = col; ctx.fillRect(x0, top, x1 - x0, 750 - top); };
+  bar(16, 52, 728, CHART.green); bar(54, 74, 716, CHART.lime); bar(76, 106, 702, CHART.red);
+  bar(374, 420, 716, CHART.lime); bar(422, 464, 722, CHART.green);
+  ctx.fillStyle = t.tx; ctx.beginPath(); ctx.moveTo(28, 677); ctx.lineTo(44, 677); ctx.lineTo(36, 687); ctx.fill();
+}
+// Dark shots have a route: keep the Karoo's route pill, just remove the back / play pills.
+function cleanDarkBottom(ctx, t) { ctx.fillStyle = t.bg; ctx.fillRect(0, 676, 140, 108); ctx.fillRect(340, 676, 140, 108); }
+// The classic light shot is in "coloured number" mode: redraw the watts plain.
+function plainWatts(ctx, t) {
+  ctx.fillStyle = t.bg; ctx.fillRect(60, 140, 360, 220);
+  text(ctx, '300', 240, 340, '500 212px Plex', t.tx, 'center', 0.9);
+}
+const shot = (...fs) => ctx => fs.forEach(f => f(ctx));
+
+// ---- Karoo controlling: the Next up box becomes the notice -------------------------------------
+function karooNotice(t, top) {
+  return ctx => {
+    ctx.fillStyle = t.bg; ctx.fillRect(12, top - 4, 456, 96);
+    rrect(ctx, 16, top, 448, 88, 14, t.note);
+    text(ctx, 'KAROO IS CONTROLLING THE TRAINER', 240, top + 32, '500 22px PlexCond', t.noteLabel, 'center');
+    text(ctx, 'Swipe down → Trainer → Read-Only', 240, top + 70, '600 29px Plex', t.noteText, 'center', 0.9);
+  };
+}
+
+// ---- paused: yellow box says what the trainer does ---------------------------------------------
+const PAUSE = new Path2D('M8,5v14 M16,5v14');
+function pausedBox(t, rowBase, nextTop) {
+  return ctx => {
+    ctx.fillStyle = t.bg; ctx.fillRect(10, rowBase - 34, 320, 44);
+    rrect(ctx, 16, rowBase - 32, 300, 48, 10, t.paused);
+    ctx.save(); ctx.translate(28, rowBase - 20); ctx.scale(1, 1); ctx.strokeStyle = t.pausedTx; ctx.globalAlpha = 0.45; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke(PAUSE); ctx.restore();
+    text(ctx, 'PAUSED · ERG 120 W', 64, rowBase, '500 24px PlexCond', t.pausedTx);
+    // ⏭ greys out while paused, as built
+    const y = nextTop + 14; ctx.fillStyle = t.bg; ctx.fillRect(385, y - 2, 68, 68);
+    rrect(ctx, 387, y, 64, 64, 12, t.tile);
+    ctx.save(); ctx.translate(403, y + 16); ctx.scale(32 / 24, 32 / 24); ctx.strokeStyle = t.sub; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(new Path2D('M4,5v14l12,-7z M20,5v14')); ctx.restore();
+  };
+}
+
+// ---- Settings ------------------------------------------------------------------------------------
+const BOLT = new Path2D('M13,2v8h6l-8,12v-8H5l8,-12z');
+function seg(ctx, t, y, labels, on) {
+  rrect(ctx, 22, y, 436, 76, 38, t.seg);
+  const w = 436 / labels.length;
+  labels.forEach((l, i) => {
+    if (i === on) rrect(ctx, 22 + i * w + 2, y + 2, w - 4, 72, 36, t.segOn);
+    text(ctx, l, 22 + i * w + w / 2, y + 47, '500 22px Plex', t.head, 'center');
+  });
+}
+function settingsPage(t, src) {
+  return ctx => {
+    // Scrolled down: Karoo style (copied from the screenshot) at the top, the new section below.
+    const pageBg = PAGE_BG[t === THEME.light ? 'light' : 'dark'];
+    ctx.fillStyle = pageBg; ctx.fillRect(0, 50, 480, 750);
+    ctx.drawImage(src, 0, 555, 480, 245, 0, 60, 480, 245);
+    ctx.fillStyle = t.rule; ctx.fillRect(22, 318, 436, 1);
+    // heading
+    ctx.save(); ctx.translate(24, 346); ctx.scale(28 / 24, 28 / 24); ctx.strokeStyle = t.head; ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.stroke(BOLT); ctx.restore();
+    text(ctx, 'Trainer (indoors)', 74, 374, '500 31px Plex', t.head);
+    seg(ctx, t, 400, ['Off', 'ERG on'], 1);
+    text(ctx, 'Wahoo trainer 28436 · ANT+', 22, 516, '500 23px Plex', t.head);
+    text(ctx, 'From the Karoo’s sensors. Only on indoor', 22, 548, '400 21px Plex', t.desc);
+    text(ctx, 'profiles (GPS off).', 22, 576, '400 21px Plex', t.desc);
+    // recovery stepper
+    text(ctx, 'When paused', 22, 628, '500 23px Plex', t.head);
+    rrect(ctx, 22, 646, 436, 72, 36, t.seg);
+    rrect(ctx, 26, 650, 64, 64, 32, t.segOn); rrect(ctx, 390, 650, 64, 64, 32, t.segOn);
+    text(ctx, '−', 58, 694, '500 32px Plex', t.head, 'center'); text(ctx, '+', 422, 694, '500 32px Plex', t.head, 'center');
+    text(ctx, '50% FTP · 120 W', 240, 692, '500 23px Plex', t.head, 'center');
+    text(ctx, 'Set the Karoo’s trainer to Read-Only so', 22, 758, '400 21px Plex', t.desc);
+    text(ctx, 'only this app sets ERG.', 22, 786, '400 21px Plex', t.desc);
+  };
+}
+
+(async () => {
+  for (const w of ['400 20px Plex', '500 20px Plex', '600 20px Plex', '500 20px PlexCond']) await document.fonts.load(w);
+  const load = s => KarooDevice.load({ frame: FRAME, screen: s });
+  const [cl, ga, cd, gd, sl, sd] = await Promise.all([load(SHOTS.classicLight), load(SHOTS.gaugeLight), load(SHOTS.classicDark), load(SHOTS.gaugeDark), load(SHOTS.settingsLight), load(SHOTS.settingsDark)]);
+  const L = THEME.light, Dk = THEME.dark;
+  const imgs = await Promise.all([SHOTS.settingsLight, SHOTS.settingsDark].map(s => new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.src = s; })));
+  const add = (id, dev, scr, cap, w = 250) => {
+    const d = document.createElement('div'); d.className = 'dev'; d.append(dev.device(scr, w));
+    if (cap) { const c = document.createElement('div'); c.className = 'cap'; c.textContent = cap; d.append(c); }
+    document.getElementById(id).append(d);
+  };
+  // Light rows: interval row baseline 425, Next up box top 575. Dark (route): 346 / 495.
+  const baseCL = [ctx => cleanLightBottom(ctx, L), ctx => plainWatts(ctx, L)];
+  const baseGL = [ctx => cleanLightBottom(ctx, L)];
+  const baseD = [ctx => cleanDarkBottom(ctx, Dk)];
+
+  add('place', cl, cl.screen({ draw: shot(...baseCL, pillA(L, 'on')) }), 'A · top row, by the gear');
+  add('place', ga, ga.screen({ draw: shot(...baseGL, pillA(L, 'on')) }), 'A · gauge');
+  add('place', cl, cl.screen({ draw: shot(...baseCL, pillB(L, 425, 'on')) }), 'B · interval row');
+  add('place', ga, ga.screen({ draw: shot(...baseGL, pillB(L, 425, 'on')) }), 'B · gauge');
+
+  // States, as field crops of the top row (option A), light then dark.
+  const states = [['on', 'Following the workout'], ['wait', 'Connecting'], ['lost', 'Trainer lost'], ['karoo', 'Karoo is controlling']];
+  for (const [dev, t, base] of [[cl, L, baseCL], [cd, Dk, baseD]]) for (const [s, cap] of states) {
+    const scr = dev.screen({ draw: shot(...base, pillA(t, s)), scale: 2 });
+    const d = document.createElement('div'); d.className = 'dev';
+    d.append(dev.crop(scr, [0, 62, 300, 70], 1));
+    const c = document.createElement('div'); c.className = 'cap'; c.textContent = cap; d.append(c);
+    document.getElementById('states').append(d);
+  }
+
+  add('conflict', cl, cl.screen({ draw: shot(...baseCL, pillA(L, 'karoo'), karooNotice(L, 575)) }), 'Light');
+  add('conflict', cd, cd.screen({ draw: shot(...baseD, pillA(Dk, 'karoo'), karooNotice(Dk, 495)) }), 'Dark, with a route');
+  add('conflict', gd, gd.screen({ draw: shot(...baseD, pillA(Dk, 'karoo'), karooNotice(Dk, 495)) }), 'Gauge, dark');
+
+  add('paused', cl, cl.screen({ draw: shot(...baseCL, pillA(L, 'on'), pausedBox(L, 425, 575)) }), 'Light');
+  add('paused', cd, cd.screen({ draw: shot(...baseD, pillA(Dk, 'on'), pausedBox(Dk, 346, 495)) }), 'Dark, with a route');
+
+  add('settings', sl, sl.screen({ draw: settingsPage(L, imgs[0]) }), 'Light');
+  add('settings', sd, sd.screen({ draw: settingsPage(Dk, imgs[1]) }), 'Dark');
+})();
+</script>
+</body>
+</html>

@@ -8,6 +8,14 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- To sync as soon as Wi-Fi connects -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Indoor ERG: control the smart trainer over Bluetooth FTMS -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:icon="@drawable/ic_interval"
