@@ -53,6 +53,4 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.timber)
-    // ANT+ Plugin library (ANT+ Shared Source License, see app/libs/ANT-LICENSE.txt), for ERG on FE-C trainers.
-    implementation(files("libs/antpluginlib_3-9-0.aar"))
 }

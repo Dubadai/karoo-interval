@@ -248,9 +248,9 @@ All tests on a pedalling rider at low targets first (≤ 200 W), never install m
 7. **Guide:** `docs/guide/` page "Indoor ERG": set Karoo trainer to Read-Only, turn on ERG,
    what the pill means, how to take over if something goes wrong.
 
-## Spike results (2026-11-06, branch `indoor-erg-spike`, not committed)
+## Spike results (2026-11-06, branch `indoor-erg-spike`)
 
-Code: `TrainerLink.kt` (ANT+ plugin, FE-C) and the debug-only `DebugTrainerReceiver`
+Code (removed again after this result, kept in the branch history): `TrainerLink.kt` (ANT+ plugin, FE-C) and the debug-only `DebugTrainerReceiver`
 (`adb shell am broadcast -a com.daviddokakis.karoointerval.DEBUG_TRAINER -p com.daviddokakis.karoointerval --es cmd …`,
 log tag `ErgSpike`). ANT+ Plugin library 3.9.0 from ant-wireless/ANT-Android-SDKs in `app/libs/`
 (ANT+ Shared Source License, `app/libs/ANT-LICENSE.txt`). No watts were ever sent.

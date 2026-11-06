@@ -8,15 +8,16 @@ import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.SavedDevices
 
 /**
- * Debug builds only. SPIKE for indoor ERG: drives [TrainerLink] from adb, e.g.
+ * Debug builds only. SPIKE for indoor ERG: drives [FtmsLink] (Bluetooth FTMS) from adb, e.g.
  * ```
  * adb shell am broadcast -a com.daviddokakis.karoointerval.DEBUG_TRAINER -p com.daviddokakis.karoointerval --es cmd devices
- * … --es cmd open --ei device 28436
- * … --es cmd watts --ei w 150
- * … --es cmd ramp --ei from 120 --ei to 200 --ei s 10
- * … --es cmd res --ei pct 0
- * … --es cmd status
- * … --es cmd close
+ * … --es cmd blescan --ei s 15
+ * … --es cmd bleconnect --es addr E9:04:D3:0C:93:5D
+ * … --es cmd blecontrol
+ * … --es cmd blewatts --ei w 150
+ * … --es cmd bleramp --ei from 120 --ei to 200 --ei s 10
+ * … --es cmd blereset
+ * … --es cmd bleclose
  * ```
  * Results are in `adb logcat -s ErgSpike`.
  */
@@ -26,13 +27,6 @@ class DebugTrainerReceiver : BroadcastReceiver() {
         Log.i(TAG, "debug cmd=$cmd")
         when (cmd) {
             "devices" -> logSavedDevices(context)
-            "open" -> TrainerLink.open(context, intent.getIntExtra("device", 0))
-            "watts" -> TrainerLink.setWatts(intent.getIntExtra("w", 0))
-            "ramp" -> TrainerLink.ramp(intent.getIntExtra("from", 0), intent.getIntExtra("to", 0), intent.getIntExtra("s", 10).coerceAtLeast(1))
-            "res" -> TrainerLink.setResistance(intent.getIntExtra("pct", 0))
-            "status" -> TrainerLink.requestStatus()
-            "close" -> TrainerLink.close()
-            "probepower" -> TrainerLink.probePower(context, intent.getIntExtra("device", 0))
             // Bluetooth FTMS
             "blescan" -> FtmsLink.scan(context, intent.getIntExtra("s", 15))
             "bleconnect" -> FtmsLink.connect(context, intent.getStringExtra("addr") ?: "")
