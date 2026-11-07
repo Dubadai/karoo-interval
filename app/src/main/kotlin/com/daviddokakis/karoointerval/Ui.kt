@@ -120,7 +120,7 @@ fun <T> Context.segmented(options: List<Pair<Int, T>>, selected: T, onPick: (T) 
                 text = getString(label)
                 gravity = Gravity.CENTER
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTextColor(getColor(R.color.segment_text))
+                setTextColor(getColor(if (value == selected) R.color.segment_text_selected else R.color.segment_text))
                 if (value == selected) setBackgroundResource(R.drawable.bg_segment_selected)
                 contentDescription = getString(label)
                 isSelected = value == selected

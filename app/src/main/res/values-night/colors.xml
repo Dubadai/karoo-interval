@@ -66,7 +66,9 @@
     <color name="skip_disabled_fg">#FF888780</color>
     <!-- Settings page: Karoo's own segmented control (Settings → Display) and row text -->
     <color name="segment_track">#FF2A2A2A</color>
-    <color name="segment_selected">#FF5E7783</color>
+    <!-- Picked option: 7:1+ against the track (design: karoo-starter/docs/design/segment-contrast, B) -->
+    <color name="segment_text_selected">#FF0B0B0B</color>
+    <color name="segment_selected">#FFC5D3DA</color>
     <color name="segment_text">#FFF2F2F2</color>
     <color name="settings_title">#FFF2F2F2</color>
     <color name="settings_help">#FFB4B2A9</color>
